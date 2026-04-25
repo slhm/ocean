@@ -6,6 +6,7 @@ import gsap from 'gsap'
 import 'animate.css'
 import { FontLoader } from 'three/examples/jsm/loaders/FontLoader.js'
 import { TextGeometry } from 'three/examples/jsm/geometries/TextGeometry.js'
+import fontData from '../static/helvetiker_regular.typeface.json'
 
 import vertexShader from './shaders/ocean/shader.vert'
 import fragmentShader from './shaders/ocean/shader.frag'
@@ -428,23 +429,13 @@ scene.add(ambiLight);
 
 const textureLoader = new THREE.TextureLoader();
 
-const fontLoadManager = new THREE.LoadingManager(
-    () => {
-        console.log("loaded");
-        loadingPlaneUniforms.uAlpha.value = 0.0;
-
-    },
-    (itemUrl, itemsLoaded, itemsTotal) =>{
-        const progressPercent = (1.0 - (itemsLoaded / itemsTotal));
-        // loadingPlaneUniforms.uAlpha.value = progressPercent;
-        console.log(progressPercent);
-    }
-);
-const fontLoader = new FontLoader(fontLoadManager);
-const typefaceFont = 'helvetiker_regular.typeface.json';
+// Parse the bundled font directly — no XHR, works in file:// and HTTP.
+const fontLoader = new FontLoader();
+const font = fontLoader.parse(fontData);
+loadingPlaneUniforms.uAlpha.value = 0.0;
 
 let textMesh = null;
-fontLoader.load(typefaceFont, (font) => {
+{
     const textGeom = new TextGeometry('SLHM', {
         font: font, 
         size: 0.2,
@@ -471,10 +462,10 @@ fontLoader.load(typefaceFont, (font) => {
     textMesh.castShadow = true;
     textMesh.receiveShadow = true;
     scene.add(textMesh);
-});
+}
 
 let textCodeMesh = null;
-fontLoader.load(typefaceFont, (font) => {
+{
     const textGeom = new TextGeometry('Code', {
         font: font, 
         size: 0.07,
@@ -500,10 +491,10 @@ fontLoader.load(typefaceFont, (font) => {
     textCodeMesh.castShadow = true;
     textCodeMesh.receiveShadow = true;
     scene.add(textCodeMesh);
-});
+}
 
 let textMusicMesh = null;
-fontLoader.load(typefaceFont, (font) => {
+{
     const textGeom = new TextGeometry('Music', {
         font: font, 
         size: 0.07, 
@@ -529,7 +520,7 @@ fontLoader.load(typefaceFont, (font) => {
     textMusicMesh.castShadow = true;
     textMusicMesh.receiveShadow = true;
     scene.add(textMusicMesh);
-});
+}
 
 
 
@@ -769,9 +760,7 @@ const tick = () =>
 
     customUniforms.uTime.value = elapsedTime;
 
-    if(textMesh){
-        lightTarget.position.copy(textMesh.position);
-    }
+    lightTarget.position.copy(textMesh.position);
 
 
     const objectsToTest = [textMesh, textCodeMesh, textMusicMesh];
