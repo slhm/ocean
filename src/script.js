@@ -4,6 +4,8 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import * as dat from 'dat.gui'
 import gsap from 'gsap'
 import 'animate.css'
+import { FontLoader } from 'three/examples/jsm/loaders/FontLoader.js'
+import { TextGeometry } from 'three/examples/jsm/geometries/TextGeometry.js'
 
 import vertexShader from './shaders/ocean/shader.vert'
 import fragmentShader from './shaders/ocean/shader.frag'
@@ -514,14 +516,15 @@ const fontLoadManager = new THREE.LoadingManager(
         console.log(progressPercent);
     }
 );
-const fontLoader = new THREE.FontLoader(fontLoadManager);
+const fontLoader = new FontLoader(fontLoadManager);
 const typefaceFont = 'helvetiker_regular.typeface.json';
 
 let textMesh = null;
 fontLoader.load(typefaceFont, (font) => {
-    const textGeom = new THREE.TextGeometry('SLHM', {
+    const textGeom = new TextGeometry('SLHM', {
         font: font, 
-        size: 0.2, 
+        size: 0.2,
+        depth: 0.05,
         height: 0.05,
         curveSegments: 12,
         bevelEnabled: true,
@@ -549,9 +552,10 @@ fontLoader.load(typefaceFont, (font) => {
 
 let textCodeMesh = null;
 fontLoader.load(typefaceFont, (font) => {
-    const textGeom = new THREE.TextGeometry('Code', {
+    const textGeom = new TextGeometry('Code', {
         font: font, 
-        size: 0.07, 
+        size: 0.07,
+        depth: 0.05,
         height: 0.0005,
         curveSegments: 12,
         bevelEnabled: true,
@@ -577,9 +581,10 @@ fontLoader.load(typefaceFont, (font) => {
 
 let textMusicMesh = null;
 fontLoader.load(typefaceFont, (font) => {
-    const textGeom = new THREE.TextGeometry('Music', {
+    const textGeom = new TextGeometry('Music', {
         font: font, 
         size: 0.07, 
+        depth: 0.05,
         height: 0.0005,
         curveSegments: 12,
         bevelEnabled: true,
