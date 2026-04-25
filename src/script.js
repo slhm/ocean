@@ -9,7 +9,6 @@ import { TextGeometry } from 'three/examples/jsm/geometries/TextGeometry.js'
 
 import vertexShader from './shaders/ocean/shader.vert'
 import fragmentShader from './shaders/ocean/shader.frag'
-import { ShaderMaterial } from 'three'
 import {EffectComposer} from 'three/examples/jsm/postprocessing/EffectComposer.js'
 import { GlitchPass } from 'three/examples/jsm/postprocessing/GlitchPass.js'
 
@@ -100,8 +99,14 @@ const waterDepthMaterial = new THREE.MeshDepthMaterial({
 })
 
 waterDepthMaterial.onBeforeCompile = (shader) =>{
-    
     shader.uniforms.uTime = customUniforms.uTime;
+    shader.uniforms.uBigWaveElevation = customUniforms.uBigWaveElevation;
+    shader.uniforms.uBigWaveFrequency = customUniforms.uBigWaveFrequency;
+    shader.uniforms.uBigWaveSpeed = customUniforms.uBigWaveSpeed;
+    shader.uniforms.uSmallWaveElevation = customUniforms.uSmallWaveElevation;
+    shader.uniforms.uSmallWaveFrequency = customUniforms.uSmallWaveFrequency;
+    shader.uniforms.uSmallWaveSpeed = customUniforms.uSmallWaveSpeed;
+    shader.uniforms.uSmallWaveIterations = customUniforms.uSmallWaveIterations;
 
     shader.vertexShader = shader.vertexShader.replace(
         '#include <common>',
@@ -190,78 +195,33 @@ waterDepthMaterial.onBeforeCompile = (shader) =>{
         return 2.2 * n_xyz;
     }
 
-    #define uBigWaveFrequencyX 4.0
-    #define uBigWaveFrequencyY 1.7
-    #define uBigWaveSpeedX 1.5
-    #define uBigWaveSpeedY 0.5
-    #define uBigWaveElevation 0.11
-    #define uSmallWaveIterations 3.0
-    #define uSmallWaveFrequency 6.6
-    #define uSmallWaveSpeed 0.5
-    #define uSmallWaveElevation 0.07
-
+    uniform float uBigWaveElevation;
+    uniform vec2 uBigWaveFrequency;
+    uniform vec2 uBigWaveSpeed;
+    uniform float uSmallWaveIterations;
+    uniform float uSmallWaveFrequency;
+    uniform float uSmallWaveSpeed;
+    uniform float uSmallWaveElevation;
     uniform float uTime;
-
-    varying float vElevation;
 
         `
     )
 
     shader.vertexShader = shader.vertexShader.replace(
-        '#include <project_vertex>',
+        '#include <begin_vertex>',
         `
-	    vec4 mvPosition = vec4( transformed, 1.0 );
+    #include <begin_vertex>
 
-        float elevation = sin(mvPosition.x * uBigWaveFrequencyX + (uTime * uBigWaveSpeedX)) * 
-                          sin(mvPosition.y * uBigWaveFrequencyY + (uTime * uBigWaveSpeedY)) * 
-                          uBigWaveElevation;
-    
-        for(float i = 1.0; i <= uSmallWaveIterations; i++){
-            elevation -= abs(cnoise(vec3(mvPosition.xy * uSmallWaveFrequency * i, uTime * uSmallWaveSpeed)) * uSmallWaveElevation / i);
-        }                  
-        mvPosition.z += elevation;
-        
-        vElevation = elevation;
-        mvPosition = modelViewMatrix * mvPosition;
+    float elevation = sin(transformed.x * uBigWaveFrequency.x + (uTime * uBigWaveSpeed.x)) *
+                      sin(transformed.y * uBigWaveFrequency.y + (uTime * uBigWaveSpeed.y)) *
+                      uBigWaveElevation;
 
-        // vec4 viewPosition = viewMatrix * worldPosition;
-        // vec4 projectedPosition = projectionMatrix * viewPosition;
-        gl_Position = projectionMatrix * mvPosition;
-        `
-    )
+    for(float i = 1.0; i <= 10.0; i++){
+        if(i > uSmallWaveIterations) break;
+        elevation -= abs(cnoise(vec3(transformed.xy * uSmallWaveFrequency * i, uTime * uSmallWaveSpeed)) * uSmallWaveElevation / i);
+    }
 
-    shader.fragmentShader = shader.fragmentShader.replace(
-        '#include <common>',
-        `
-        #include <common>
-
-        varying float vElevation;
-
-        #define uDepthColorR 0.0
-        #define uDepthColorG 0.15
-        #define uDepthColorB 0.30
-
-        #define uSurfaceColorR 0.4
-        #define uSurfaceColorB 1.3
-        #define uSurfaceColorG 0.70
-
-        #define uColorOffset 0.12
-        #define uColorMultiplier 10.0
-        #define uDarker 0.6
-        `
-    )
-
-    shader.fragmentShader = shader.fragmentShader.replace(
-        '#include <dithering_fragment>',
-        `
-        #include <dithering_fragment>
-        float mixStrenth = ((vElevation + uColorOffset) * uColorMultiplier) - uDarker;
-        
-        vec3 uDepthColor = vec3(uDepthColorR, uDepthColorG, uDepthColorB);
-        vec3 uSurfaceColor = vec3(uSurfaceColorR, uSurfaceColorG, uSurfaceColorB);
-        vec3 oceanColor = mix(uDepthColor, uSurfaceColor, mixStrenth);
-        gl_FragColor *= vec4(oceanColor, opacity);
-        // gl_FragColor = vec4(oceanColor, 1.0);
+    transformed.z += elevation;
         `
     )
 }
@@ -269,19 +229,18 @@ waterDepthMaterial.onBeforeCompile = (shader) =>{
 waterMaterial.onBeforeCompile = (shader) =>{
 
     shader.uniforms.uTime = customUniforms.uTime;
-
-    // shader.uniforms.uBigWaveElevation = customUniforms.uBigWaveElevation;
-    // shader.uniforms.uBigWaveFrequency = customUniforms.uBigWaveFrequency;
-    // shader.uniforms.uBigWaveSpeed = customUniforms.uBigWaveSpeed;
-    // shader.uniforms.uDepthColor = customUniforms.uDepthColor;
-    // shader.uniforms.uSurfaceColor = customUniforms.uSurfaceColor;
-    // shader.uniforms.uColorOffset = customUniforms.uColorOffset;
-    // shader.uniforms.uColorMultiplier = customUniforms.uColorMultiplier;
-    // shader.uniforms.uDarker = customUniforms.uDarker;
-    // shader.uniforms.uSmallWaveElevation = customUniforms.uSmallWaveElevation;
-    // shader.uniforms.uSmallWaveFrequency = customUniforms.uSmallWaveFrequency;
-    // shader.uniforms.uSmallWaveSpeed = customUniforms.uSmallWaveSpeed;
-    // shader.uniforms.uSmallWaveIterations = customUniforms.uSmallWaveIterations;
+    shader.uniforms.uBigWaveElevation = customUniforms.uBigWaveElevation;
+    shader.uniforms.uBigWaveFrequency = customUniforms.uBigWaveFrequency;
+    shader.uniforms.uBigWaveSpeed = customUniforms.uBigWaveSpeed;
+    shader.uniforms.uDepthColor = customUniforms.uDepthColor;
+    shader.uniforms.uSurfaceColor = customUniforms.uSurfaceColor;
+    shader.uniforms.uColorOffset = customUniforms.uColorOffset;
+    shader.uniforms.uColorMultiplier = customUniforms.uColorMultiplier;
+    shader.uniforms.uDarker = customUniforms.uDarker;
+    shader.uniforms.uSmallWaveElevation = customUniforms.uSmallWaveElevation;
+    shader.uniforms.uSmallWaveFrequency = customUniforms.uSmallWaveFrequency;
+    shader.uniforms.uSmallWaveSpeed = customUniforms.uSmallWaveSpeed;
+    shader.uniforms.uSmallWaveIterations = customUniforms.uSmallWaveIterations;
 
 
 
@@ -372,16 +331,13 @@ waterMaterial.onBeforeCompile = (shader) =>{
         return 2.2 * n_xyz;
     }
 
-    #define uBigWaveFrequencyX 4.0
-    #define uBigWaveFrequencyY 1.7
-    #define uBigWaveSpeedX 1.5
-    #define uBigWaveSpeedY 0.5
-    #define uBigWaveElevation 0.11
-    #define uSmallWaveIterations 3.0
-    #define uSmallWaveFrequency 6.6
-    #define uSmallWaveSpeed 0.5
-    #define uSmallWaveElevation 0.07
-
+    uniform float uBigWaveElevation;
+    uniform vec2 uBigWaveFrequency;
+    uniform vec2 uBigWaveSpeed;
+    uniform float uSmallWaveIterations;
+    uniform float uSmallWaveFrequency;
+    uniform float uSmallWaveSpeed;
+    uniform float uSmallWaveElevation;
     uniform float uTime;
 
     varying float vElevation;
@@ -390,25 +346,21 @@ waterMaterial.onBeforeCompile = (shader) =>{
     )
 
     shader.vertexShader = shader.vertexShader.replace(
-        '#include <project_vertex>',
+        '#include <begin_vertex>',
         `
-	    vec4 mvPosition = vec4( transformed, 1.0 );
+    #include <begin_vertex>
 
-        float elevation = sin(mvPosition.x * uBigWaveFrequencyX + (uTime * uBigWaveSpeedX)) * 
-                          sin(mvPosition.y * uBigWaveFrequencyY + (uTime * uBigWaveSpeedY)) * 
-                          uBigWaveElevation;
-    
-        for(float i = 1.0; i <= uSmallWaveIterations; i++){
-            elevation -= abs(cnoise(vec3(mvPosition.xy * uSmallWaveFrequency * i, uTime * uSmallWaveSpeed)) * uSmallWaveElevation / i);
-        }                  
-        mvPosition.z += elevation;
-        
-        vElevation = elevation;
-        mvPosition = modelViewMatrix * mvPosition;
+    float elevation = sin(transformed.x * uBigWaveFrequency.x + (uTime * uBigWaveSpeed.x)) *
+                      sin(transformed.y * uBigWaveFrequency.y + (uTime * uBigWaveSpeed.y)) *
+                      uBigWaveElevation;
 
-        // vec4 viewPosition = viewMatrix * worldPosition;
-        // vec4 projectedPosition = projectionMatrix * viewPosition;
-        gl_Position = projectionMatrix * mvPosition;
+    for(float i = 1.0; i <= 10.0; i++){
+        if(i > uSmallWaveIterations) break;
+        elevation -= abs(cnoise(vec3(transformed.xy * uSmallWaveFrequency * i, uTime * uSmallWaveSpeed)) * uSmallWaveElevation / i);
+    }
+
+    transformed.z += elevation;
+    vElevation = elevation;
         `
     )
 
@@ -419,17 +371,11 @@ waterMaterial.onBeforeCompile = (shader) =>{
 
         varying float vElevation;
 
-        #define uDepthColorR 0.0
-        #define uDepthColorG 0.15
-        #define uDepthColorB 0.30
-
-        #define uSurfaceColorR 0.4
-        #define uSurfaceColorB 1.3
-        #define uSurfaceColorG 0.70
-
-        #define uColorOffset 0.12
-        #define uColorMultiplier 10.0
-        #define uDarker 0.6
+        uniform vec3 uDepthColor;
+        uniform vec3 uSurfaceColor;
+        uniform float uColorOffset;
+        uniform float uColorMultiplier;
+        uniform float uDarker;
         `
     )
 
@@ -439,47 +385,19 @@ waterMaterial.onBeforeCompile = (shader) =>{
         #include <dithering_fragment>
         float mixStrenth = ((vElevation + uColorOffset) * uColorMultiplier) - uDarker;
         
-        vec3 uDepthColor = vec3(uDepthColorR, uDepthColorG, uDepthColorB);
-        vec3 uSurfaceColor = vec3(uSurfaceColorR, uSurfaceColorG, uSurfaceColorB);
         vec3 oceanColor = mix(uDepthColor, uSurfaceColor, mixStrenth);
         gl_FragColor *= vec4(oceanColor, opacity);
         // gl_FragColor = vec4(oceanColor, 1.0);
         `
     )
-    console.log(shader);
 }
-
-/**
- * Shaders
- */
-
-const shader = new THREE.ShaderMaterial({
-    vertexShader: vertexShader,
-    fragmentShader: fragmentShader,
-    uniforms: {
-        uBigWaveElevation: {value: 0.112},
-        uBigWaveFrequency: {value: new THREE.Vector2(4, 1.5)},
-        uTime: {value: 0},
-        uBigWaveSpeed: {value: new THREE.Vector2(1.46, 0.48)},
-        uDepthColor: {value: new THREE.Color(debugObject.depthColor)},
-        uSurfaceColor: {value: new THREE.Color(debugObject.surfaceColor)},
-        uColorOffset: {value: 0.12},
-        uColorMultiplier: {value: 10},
-        uDarker: {value: 0.61},
-
-        uSmallWaveElevation: {value: 0.043},
-        uSmallWaveFrequency: {value: 6.6},
-        uSmallWaveSpeed: {value: 0.54},
-        uSmallWaveIterations: {value: 3}
-    }
-})
 
 waterMaterial.metalness = 0.0;
 waterMaterial.roughness = 0;
 
 // Mesh
 const waterMesh = new THREE.Mesh(waterGeometry, waterMaterial)
-// waterMesh.customDepthMaterial = waterDepthMaterial;
+waterMesh.customDepthMaterial = waterDepthMaterial;
 waterMesh.rotation.x = - Math.PI * 0.5
 // waterMesh.castShadow = true;
 waterMesh.receiveShadow = true;
@@ -487,17 +405,23 @@ waterMesh.receiveShadow = true;
 scene.add(waterMesh)
 
 // Lights
-const newLight = new THREE.SpotLight('#fff', 0.9, 10, Math.PI * 0.08, 0.25, 1);
+const newLight = new THREE.SpotLight('#fff', 6, 12, Math.PI * 0.18, 0.35, 2);
 newLight.position.set(2, 1.5, 1.5);
-// newLight.lookAt(0,0,0);
+const lightTarget = new THREE.Object3D();
+lightTarget.position.set(0, 0.05, 0);
+scene.add(lightTarget);
+newLight.target = lightTarget;
 const lightHelper = new THREE.SpotLightHelper(newLight, 0.5);
 newLight.castShadow = true;
-newLight.shadow.mapSize.width = 256;
-newLight.shadow.mapSize.height = 256;
-newLight.shadow.radius = 5;
+newLight.shadow.mapSize.width = 1024;
+newLight.shadow.mapSize.height = 1024;
+newLight.shadow.radius = 1;
+newLight.shadow.bias = -0.001;
+newLight.shadow.camera.near = 0.5;
+newLight.shadow.camera.far = 15;
 scene.add(newLight);
 
-const ambiLight = new THREE.AmbientLight('#fff', 0.1);
+const ambiLight = new THREE.AmbientLight('#fff', 0.3);
 scene.add(ambiLight);
 
 // Font stuff
@@ -545,9 +469,8 @@ fontLoader.load(typefaceFont, (font) => {
     // textMesh.position.set(0,0,0);
     // textMesh.computeBoundingBox();
     textMesh.castShadow = true;
-    // textMesh.receiveShadow = true;
+    textMesh.receiveShadow = true;
     scene.add(textMesh);
-    newLight.lookAt(textMesh);
 });
 
 let textCodeMesh = null;
@@ -575,7 +498,7 @@ fontLoader.load(typefaceFont, (font) => {
     textCodeMesh.rotation.y = 0.3;
 
     textCodeMesh.castShadow = true;
-    // textCodeMesh.receiveShadow = true;
+    textCodeMesh.receiveShadow = true;
     scene.add(textCodeMesh);
 });
 
@@ -648,31 +571,32 @@ const points = [
 // Debug parameters
 
 // Bigwave parameters
-gui.add(shader.uniforms.uBigWaveElevation, 'value').min(0).max(1).step(0.001).name('uBigWaveElevation');
-gui.add(shader.uniforms.uBigWaveFrequency.value, 'x').min(0).max(10).step(0.001).name('uBigWaveFrequencyX');
-gui.add(shader.uniforms.uBigWaveFrequency.value, 'y').min(0).max(10).step(0.001).name('uBigWaveFrequencyY');
-gui.add(shader.uniforms.uBigWaveSpeed.value, 'x').min(0).max(4).step(0.001).name('uBigWaveSpeedX');
-gui.add(shader.uniforms.uBigWaveSpeed.value, 'y').min(0).max(4).step(0.001).name('uBigWaveSpeedY');
+gui.add(customUniforms.uBigWaveElevation, 'value').min(0).max(1).step(0.001).name('uBigWaveElevation');
+gui.add(customUniforms.uBigWaveFrequency.value, 'x').min(0).max(10).step(0.001).name('uBigWaveFrequencyX');
+gui.add(customUniforms.uBigWaveFrequency.value, 'y').min(0).max(10).step(0.001).name('uBigWaveFrequencyY');
+gui.add(customUniforms.uBigWaveSpeed.value, 'x').min(0).max(4).step(0.001).name('uBigWaveSpeedX');
+gui.add(customUniforms.uBigWaveSpeed.value, 'y').min(0).max(4).step(0.001).name('uBigWaveSpeedY');
 
 // Smallwave parameters
-gui.add(shader.uniforms.uSmallWaveElevation, 'value').min(0).max(1).step(0.001).name('uSmallWaveElevation');
-gui.add(shader.uniforms.uSmallWaveFrequency, 'value').min(0).max(30).step(0.001).name('uSmallWaveFrequency');
-gui.add(shader.uniforms.uSmallWaveSpeed, 'value').min(0).max(4).step(0.001).name('uSmallWaveSpeed');
-gui.add(shader.uniforms.uSmallWaveIterations, 'value').min(0).max(5).step(1).name('uSmallWaveIterations');
+gui.add(customUniforms.uSmallWaveElevation, 'value').min(0).max(1).step(0.001).name('uSmallWaveElevation');
+gui.add(customUniforms.uSmallWaveFrequency, 'value').min(0).max(30).step(0.001).name('uSmallWaveFrequency');
+gui.add(customUniforms.uSmallWaveSpeed, 'value').min(0).max(4).step(0.001).name('uSmallWaveSpeed');
+gui.add(customUniforms.uSmallWaveIterations, 'value').min(0).max(10).step(1).name('uSmallWaveIterations');
 
 
 // Color parameters
-gui.add(shader.uniforms.uColorOffset, 'value').min(0).max(1).step(0.001).name('uColorOffset');
-gui.add(shader.uniforms.uColorMultiplier, 'value').min(0).max(10).step(0.001).name('uColorMultiplier');
-gui.add(shader.uniforms.uDarker, 'value').min(0).max(1).step(0.001).name('uDarker');
+gui.add(customUniforms.uColorOffset, 'value').min(0).max(1).step(0.001).name('uColorOffset');
+gui.add(customUniforms.uColorMultiplier, 'value').min(0).max(10).step(0.001).name('uColorMultiplier');
+gui.add(customUniforms.uDarker, 'value').min(0).max(1).step(0.001).name('uDarker');
 gui.addColor(debugObject, 'depthColor').onChange(() => {
-    shader.uniforms.uDepthColor.value.set(debugObject.depthColor)
+    customUniforms.uDepthColor.value.set(debugObject.depthColor)
 })
 gui.addColor(debugObject, 'surfaceColor').onChange(() => {
-    shader.uniforms.uSurfaceColor.value.set(debugObject.surfaceColor)
+    customUniforms.uSurfaceColor.value.set(debugObject.surfaceColor)
 })
 
-gui.hide();
+// Keep controls visible so shader uniforms can be tuned live.
+gui.show();
 
 
 /**
@@ -844,6 +768,10 @@ const tick = () =>
 
 
     customUniforms.uTime.value = elapsedTime;
+
+    if(textMesh){
+        lightTarget.position.copy(textMesh.position);
+    }
 
 
     const objectsToTest = [textMesh, textCodeMesh, textMusicMesh];
